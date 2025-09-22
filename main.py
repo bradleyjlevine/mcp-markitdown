@@ -11,6 +11,8 @@ import json
 import base64
 import sys
 import logging
+import contextlib
+import io
 from urllib.parse import urlparse
 from markitdown import MarkItDown
 from fastmcp import FastMCP
@@ -269,65 +271,76 @@ def download_youtube_transcript(url):
         'writeautomaticsub': True,
         'subtitleslangs': ['en'],
         'skip_download': True,
-        'quiet': True,
+        'quiet': not ("--test" in sys.argv),  # Only show download progress in test mode
+        'no_progress': not ("--test" in sys.argv),  # Suppress progress bar in MCP mode
         'outtmpl': temp_path,
         'format': 'best',  # Just to satisfy the format requirement
         # Basic impersonation without complex client settings
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         },
+        'logger': logger,  # Use our configured logger
     }
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            # The subtitle file might be named differently
-            subtitle_path = f"{temp_path}.en.vtt"
+        # In MCP server mode, capture and redirect stdout/stderr
+        if "--test" not in sys.argv:
+            # Capture stdout/stderr to prevent them from interfering with MCP protocol
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
+        else:
+            # In test mode, let stdout/stderr flow normally
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
 
+        # The subtitle file might be named differently
+        subtitle_path = f"{temp_path}.en.vtt"
+
+        if os.path.exists(subtitle_path):
+            # Read VTT and convert to plain text
+            with open(subtitle_path, 'r', encoding='utf-8') as vtt_file:
+                content = vtt_file.read()
+
+            # Enhanced VTT to text conversion with better formatting cleanup
+            lines = content.split('\n')
+
+            # Process lines to remove formatting
+            filtered_lines = []
+            last_clean_line = ""
+
+            for line in lines:
+                # Skip WebVTT header, timestamps, position tags, etc.
+                if (not re.match(r'^WEBVTT|^\d{2}:|^NOTE|^Kind:|^Language:|^STYLE|^REGION', line) and
+                    not re.match(r'^\d{2}:\d{2}:\d{2}\.\d{3}', line) and
+                    not line.startswith('-->') and
+                    line.strip()):
+
+                    # Remove all VTT formatting tags: <00:00:00.000>, <c>, etc.
+                    clean_line = re.sub(r'<\d{2}:\d{2}:\d{2}\.\d{3}>', '', line)
+                    clean_line = re.sub(r'</?[a-zA-Z]>', '', clean_line)
+                    clean_line = re.sub(r'</?[a-zA-Z]:[^>]*>', '', clean_line)
+
+                    # Clean up any remaining tags
+                    clean_line = re.sub(r'<[^>]*>', '', clean_line)
+
+                    # Only add if there's content and it's not a duplicate of the previous line
+                    if clean_line.strip() and clean_line.strip() != last_clean_line:
+                        filtered_lines.append(clean_line.strip())
+                        last_clean_line = clean_line.strip()
+
+            # Write cleaned text to the output file
+            with open(temp_path, 'w', encoding='utf-8') as text_file:
+                text_file.write(f"# Transcript for YouTube Video: {info.get('title', 'Unknown Title')}\n\n")
+                text_file.write('\n'.join(filtered_lines))
+
+            # Clean up the VTT file
             if os.path.exists(subtitle_path):
-                # Read VTT and convert to plain text
-                with open(subtitle_path, 'r', encoding='utf-8') as vtt_file:
-                    content = vtt_file.read()
+                os.remove(subtitle_path)
 
-                # Enhanced VTT to text conversion with better formatting cleanup
-                lines = content.split('\n')
-
-                # Process lines to remove formatting
-                filtered_lines = []
-                last_clean_line = ""
-
-                for line in lines:
-                    # Skip WebVTT header, timestamps, position tags, etc.
-                    if (not re.match(r'^WEBVTT|^\d{2}:|^NOTE|^Kind:|^Language:|^STYLE|^REGION', line) and
-                        not re.match(r'^\d{2}:\d{2}:\d{2}\.\d{3}', line) and
-                        not line.startswith('-->') and
-                        line.strip()):
-
-                        # Remove all VTT formatting tags: <00:00:00.000>, <c>, etc.
-                        clean_line = re.sub(r'<\d{2}:\d{2}:\d{2}\.\d{3}>', '', line)
-                        clean_line = re.sub(r'</?[a-zA-Z]>', '', clean_line)
-                        clean_line = re.sub(r'</?[a-zA-Z]:[^>]*>', '', clean_line)
-
-                        # Clean up any remaining tags
-                        clean_line = re.sub(r'<[^>]*>', '', clean_line)
-
-                        # Only add if there's content and it's not a duplicate of the previous line
-                        if clean_line.strip() and clean_line.strip() != last_clean_line:
-                            filtered_lines.append(clean_line.strip())
-                            last_clean_line = clean_line.strip()
-
-                # Write cleaned text to the output file
-                with open(temp_path, 'w', encoding='utf-8') as text_file:
-                    text_file.write(f"# Transcript for YouTube Video: {info.get('title', 'Unknown Title')}\n\n")
-                    text_file.write('\n'.join(filtered_lines))
-
-                # Clean up the VTT file
-                if os.path.exists(subtitle_path):
-                    os.remove(subtitle_path)
-
-                return temp_path
-            else:
-                raise Exception("No subtitles were found for this video")
+            return temp_path
+        else:
+            raise Exception("No subtitles were found for this video")
     except Exception as e:
         # Clean up temporary files in case of error
         if os.path.exists(temp_path):
