@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  mcp-markitdown:
+    build: .
+    container_name: mcp-markitdown
+    environment:
+      # Configure Ollama connection
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      # Optional: Add other environment variables
+      - PYTHONUNBUFFERED=1
+    # For Linux hosts, uncomment the following line instead of using host.docker.internal
+    # network_mode: host
+    ports:
+      # Optional: expose port if you add HTTP interface later
+      - "8080:8080"
+    # Mount volumes if needed for file processing
+    volumes:
+      - ./logs:/app/logs  # Optional: for logging
+    restart: unless-stopped
+    # Add platform specification for multi-arch support
+    platform: linux/amd64
+
+# Alternative configuration for Linux hosts
+# Uncomment the following and comment out the above service for Linux
+#
+# services:
+#   mcp-markitdown-linux:
+#     build: .
+#     container_name: mcp-markitdown
+#     environment:
+#       # Use host network gateway IP for Linux
+#       - OLLAMA_HOST=http://172.17.0.1:11434
+#       - PYTHONUNBUFFERED=1
+#     network_mode: bridge
+#     extra_hosts:
+#       - "host.docker.internal:host-gateway"
+#     ports:
+#       - "8080:8080"
+#     volumes:
+#       - ./logs:/app/logs
+#     restart: unless-stopped

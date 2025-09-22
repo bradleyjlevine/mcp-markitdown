@@ -28,10 +28,17 @@ def check_ollama_availability():
         # Try to import ollama
         import ollama
 
+        # Get Ollama host from environment variable
+        ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
+        print(f"Attempting to connect to Ollama at: {ollama_host}")
+
+        # Create Ollama client with custom host
+        client = ollama.Client(host=ollama_host)
+
         # Check if Ollama service is running by listing models
         try:
             # Try to get the list of models
-            models_response = ollama.list()
+            models_response = client.list()
 
             # Handle different response formats
             if not models_response:
@@ -131,12 +138,18 @@ def generate_image_caption(image_path):
     try:
         import ollama
 
+        # Get Ollama host from environment variable
+        ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
+
+        # Create Ollama client with custom host
+        client = ollama.Client(host=ollama_host)
+
         # Load and convert image to base64
         with open(image_path, 'rb') as img_file:
             img_data = img_file.read()
 
         # Create the prompt for the model
-        response = ollama.chat(
+        response = client.chat(
             model=PREFERRED_MODEL,
             messages=[{
                 'role': 'user',

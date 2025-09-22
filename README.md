@@ -102,6 +102,79 @@ This will download the document, convert it to markdown, and display a preview o
 - ollama: For interacting with local Ollama instance for image captioning
 - pillow: For image processing and manipulation
 
+## Docker Support
+
+### Building and Running with Docker
+
+The project includes Docker support for easy deployment and isolation from host dependencies.
+
+#### Prerequisites
+
+- Docker installed on your system
+- Ollama running on the host machine (not in the container)
+
+#### Quick Start with Docker Compose
+
+1. Clone the repository and navigate to the project directory
+2. Build and run using Docker Compose:
+
+```bash
+# For Windows/Mac (uses host.docker.internal)
+docker-compose up --build
+
+# For Linux, edit docker-compose.yml to uncomment the Linux configuration
+# or use the alternative command:
+OLLAMA_HOST=http://172.17.0.1:11434 docker-compose up --build
+```
+
+#### Manual Docker Build
+
+```bash
+# Build the image
+docker build -t mcp-markitdown .
+
+# Run the container (Windows/Mac)
+docker run -e OLLAMA_HOST=http://host.docker.internal:11434 mcp-markitdown
+
+# Run the container (Linux)
+docker run -e OLLAMA_HOST=http://172.17.0.1:11434 mcp-markitdown
+
+# Test with a specific URL
+docker run -e OLLAMA_HOST=http://host.docker.internal:11434 mcp-markitdown python main.py --test "https://example.com/document.pdf"
+```
+
+#### Environment Variables
+
+- `OLLAMA_HOST`: URL of the Ollama service (default: http://localhost:11434)
+  - Windows/Mac: `http://host.docker.internal:11434`
+  - Linux: `http://172.17.0.1:11434` or use `--network=host`
+
+#### Network Configuration
+
+**Windows/Mac:**
+Uses `host.docker.internal` to connect to services on the host machine.
+
+**Linux:**
+Requires special configuration:
+- Use `--network=host` to share the host network
+- Or use `172.17.0.1:11434` (Docker bridge gateway IP)
+- Or add `--add-host=host.docker.internal:host-gateway`
+
+#### Troubleshooting Docker
+
+1. **Connection refused errors**: Ensure Ollama is running on the host and accessible
+2. **Linux networking**: Try different approaches:
+   ```bash
+   # Option 1: Host networking
+   docker run --network=host mcp-markitdown
+
+   # Option 2: Bridge with gateway
+   docker run -e OLLAMA_HOST=http://172.17.0.1:11434 mcp-markitdown
+
+   # Option 3: Custom host mapping
+   docker run --add-host=host.docker.internal:host-gateway mcp-markitdown
+   ```
+
 ## License
 
 This project uses the markitdown package from Microsoft, which is under MIT license.
