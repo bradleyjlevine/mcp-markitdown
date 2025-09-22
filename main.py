@@ -372,12 +372,23 @@ def markitdown_fetch(
 
         # Special handling for YouTube URLs
         if is_youtube_url(url):
-            local_path = download_youtube_transcript(url)
-            with open(local_path, 'r', encoding='utf-8') as f:
-                markdown_content = f.read()
-            # Clean up temporary file
-            os.remove(local_path)
-            return {"markdown": markdown_content}
+            try:
+                local_path = download_youtube_transcript(url)
+                with open(local_path, 'r', encoding='utf-8') as f:
+                    markdown_content = f.read()
+                # Clean up temporary file
+                os.remove(local_path)
+
+                # Normalize line endings to \n for consistency
+                markdown_content = markdown_content.replace('\r\n', '\n')
+
+                # Strip any problematic characters that might cause JSON issues
+                markdown_content = ''.join(c for c in markdown_content if ord(c) >= 32 or c in '\n\r\t')
+
+                return {"markdown": markdown_content}
+            except Exception as e:
+                print(f"Error processing YouTube transcript: {str(e)}")
+                return {"markdown": f"Error processing YouTube transcript: {str(e)}"}
 
         # For all other URLs, download the file and convert with markitdown
         local_path = download_file(url)
@@ -431,6 +442,12 @@ def test_markitdown_fetch(url):
                 markdown_content = f.read()
             # Clean up temporary file
             os.remove(local_path)
+
+            # Normalize line endings to \n for consistency
+            markdown_content = markdown_content.replace('\r\n', '\n')
+
+            # Strip any problematic characters that might cause JSON issues
+            markdown_content = ''.join(c for c in markdown_content if ord(c) >= 32 or c in '\n\r\t')
         else:
             # For all other URLs, download the file and convert with markitdown
             local_path = download_file(url)

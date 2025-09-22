@@ -26,7 +26,11 @@ An MCP server that uses Microsoft's MarkItDown package to fetch documents from t
 
 ### External Dependencies
 
-- For better audio/video processing, install FFmpeg: [Download FFmpeg](https://ffmpeg.org/download.html)
+When running locally (without Docker):
+- For audio/video processing, install FFmpeg: [Download FFmpeg](https://ffmpeg.org/download.html)
+  - Required for YouTube transcript extraction
+  - Already included in the Docker container
+
 - For AI image captioning, install Ollama: [Download Ollama](https://ollama.ai/)
   - After installing Ollama, run one of these commands to pull a supported model:
     ```bash
@@ -94,6 +98,7 @@ This will download the document, convert it to markdown, and display a preview o
 
 ## Dependencies
 
+### Python Packages
 - markitdown[all]: Microsoft's MarkItDown package for document conversion
 - fastmcp: For building MCP servers
 - requests: For fetching documents from URLs
@@ -101,6 +106,13 @@ This will download the document, convert it to markdown, and display a preview o
 - yt-dlp[curl-cffi]: For handling YouTube videos and transcripts with browser impersonation
 - ollama: For interacting with local Ollama instance for image captioning
 - pillow: For image processing and manipulation
+- pydub: For audio processing (used by some markitdown components)
+
+### System Dependencies
+When running the Docker container, these are automatically installed:
+- ffmpeg: For audio/video processing and format conversion
+- poppler-utils: For PDF processing
+- libmagic1: For file type detection
 
 ## Docker Support
 

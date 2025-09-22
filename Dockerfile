@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y \
     libmagic1 \
     # Network tools
     curl \
+    # Audio/video processing tools for pydub
+    ffmpeg \
     # Clean up
     && rm -rf /var/lib/apt/lists/*
 
