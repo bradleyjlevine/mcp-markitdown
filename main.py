@@ -9,15 +9,36 @@ import urllib.parse
 import subprocess
 import json
 import base64
+import sys
+import logging
 from urllib.parse import urlparse
 from markitdown import MarkItDown
 from fastmcp import FastMCP
 from PIL import Image
 import io
 
+# Setup logging to file instead of stdout when running as MCP server
+# This prevents print statements from interfering with stdio transport
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("markitdown.log"),
+        logging.StreamHandler() if "--test" in sys.argv else logging.NullHandler()
+    ]
+)
+logger = logging.getLogger("markitdown")
+
 # Global variables for Ollama availability
 OLLAMA_AVAILABLE = False
 PREFERRED_MODEL = None
+
+# Use this for output instead of print() to avoid interfering with MCP stdio transport
+def log_info(message):
+    if "--test" in sys.argv:
+        print(message)  # Print to console in test mode
+    else:
+        logger.info(message)  # Log to file in MCP server mode
 
 # Function to check if Ollama is available
 def check_ollama_availability():
@@ -30,7 +51,7 @@ def check_ollama_availability():
 
         # Get Ollama host from environment variable
         ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
-        print(f"Attempting to connect to Ollama at: {ollama_host}")
+        log_info(f"Attempting to connect to Ollama at: {ollama_host}")
 
         # Create Ollama client with custom host
         client = ollama.Client(host=ollama_host)
@@ -42,7 +63,7 @@ def check_ollama_availability():
 
             # Handle different response formats
             if not models_response:
-                print("Ollama responded with empty data")
+                log_info("Ollama responded with empty data")
                 OLLAMA_AVAILABLE = False
                 return False
 
@@ -58,11 +79,11 @@ def check_ollama_availability():
                     for key, value in models_response.items():
                         if isinstance(value, list) and value:
                             models = value
-                            print(f"Found models under key: {key}")
+                            log_info(f"Found models under key: {key}")
                             break
 
             if models:
-                print("Ollama is available with the following models:")
+                log_info("Ollama is available with the following models:")
                 model_names = []
 
                 for model in models:
@@ -90,13 +111,13 @@ def check_ollama_availability():
 
                         # Print and save the model name if found
                         if model_name:
-                            print(f"  - {model_name}")
+                            log_info(f"  - {model_name}")
                             model_names.append(model_name)
                         else:
                             # Fallback: print the whole model but don't use it
-                            print(f"  - {model} (unable to extract name)")
+                            log_info(f"  - {model} (unable to extract name)")
                     except Exception as e:
-                        print(f"  - Error extracting model name: {str(e)}")
+                        log_info(f"  - Error extracting model name: {str(e)}")
 
                 # Priority order of models
                 preferred_models = ["gemma3:4b", "qwen2.5vl:7b"]
@@ -104,26 +125,26 @@ def check_ollama_availability():
                 for model in preferred_models:
                     if model in model_names:
                         PREFERRED_MODEL = model
-                        print(f"Using {PREFERRED_MODEL} for image captioning")
+                        log_info(f"Using {PREFERRED_MODEL} for image captioning")
                         OLLAMA_AVAILABLE = True
                         return True
 
-                print("No preferred vision models available. Please install gemma3:4b or qwen2.5vl:7b")
+                log_info("No preferred vision models available. Please install gemma3:4b or qwen2.5vl:7b")
                 OLLAMA_AVAILABLE = False
             else:
-                print("Ollama is installed but no models are available")
+                log_info("Ollama is installed but no models are available")
                 OLLAMA_AVAILABLE = False
         except Exception as e:
-            print(f"Error listing Ollama models: {str(e)}")
+            log_info(f"Error listing Ollama models: {str(e)}")
             OLLAMA_AVAILABLE = False
             PREFERRED_MODEL = None
 
     except ImportError:
-        print("Ollama Python package is not available")
+        log_info("Ollama Python package is not available")
         OLLAMA_AVAILABLE = False
         PREFERRED_MODEL = None
     except Exception as e:
-        print(f"Ollama is not available: {str(e)}")
+        log_info(f"Ollama is not available: {str(e)}")
         OLLAMA_AVAILABLE = False
         PREFERRED_MODEL = None
 
@@ -163,11 +184,11 @@ def generate_image_caption(image_path):
         return caption
 
     except Exception as e:
-        print(f"Error generating image caption: {str(e)}")
+        log_info(f"Error generating image caption: {str(e)}")
         return f"Failed to generate image caption: {str(e)}"
 
 # Check Ollama availability at startup
-print("Checking Ollama availability...")
+log_info("Checking Ollama availability...")
 check_ollama_availability()
 
 # Initialize MCP server
@@ -362,7 +383,7 @@ def markitdown_fetch(
         Markdown representation of the document
     """
     try:
-        print(f"Processing URL: {url}")
+        log_info(f"Processing URL: {url}")
 
         # Clean up URL - remove quotes and brackets that might be accidentally included
         url = url.strip().rstrip('"\'[]')
@@ -387,7 +408,7 @@ def markitdown_fetch(
 
                 return {"markdown": markdown_content}
             except Exception as e:
-                print(f"Error processing YouTube transcript: {str(e)}")
+                log_info(f"Error processing YouTube transcript: {str(e)}")
                 return {"markdown": f"Error processing YouTube transcript: {str(e)}"}
 
         # For all other URLs, download the file and convert with markitdown
@@ -404,15 +425,15 @@ def markitdown_fetch(
 
             # If Ollama is available, generate a caption
             if OLLAMA_AVAILABLE and PREFERRED_MODEL:
-                print(f"Generating image caption using {PREFERRED_MODEL}...")
+                log_info(f"Generating image caption using {PREFERRED_MODEL}...")
                 caption = generate_image_caption(local_path)
                 content = f"{image_markdown}\n\n## Image Description\n\n{caption}"
-                print(f"Added image with AI-generated caption")
+                log_info(f"Added image with AI-generated caption")
             else:
                 content = f"{image_markdown}\n\n*This is an image file. For detailed image description, install Ollama with gemma3:4b or qwen2.5vl:7b.*"
-                print(f"Added basic image tag for image file")
+                log_info(f"Added basic image tag for image file")
 
-        print(f"Conversion successful, content length: {len(content)}")
+        log_info(f"Conversion successful, content length: {len(content)}")
 
         # Clean up temporary file
         os.remove(local_path)
@@ -420,17 +441,17 @@ def markitdown_fetch(
         return {"markdown": content}
 
     except Exception as e:
-        print(f"Error: {str(e)}")
+        log_info(f"Error: {str(e)}")
         return {"markdown": f"Error processing {url}: {str(e)}"}
 
 
 def test_markitdown_fetch(url):
     """Test function to try markitdown_fetch functionality directly without starting the MCP server"""
-    print(f"Testing markitdown_fetch with URL: {url}")
+    log_info(f"Testing markitdown_fetch with URL: {url}")
     try:
         # Clean up URL - remove quotes and brackets that might be accidentally included
         url = url.strip().rstrip('"\'[]')
-        print(f"Processing URL: {url}")
+        log_info(f"Processing URL: {url}")
 
         # Initialize MarkItDown converter
         md = MarkItDown(enable_plugins=True)
@@ -451,7 +472,7 @@ def test_markitdown_fetch(url):
         else:
             # For all other URLs, download the file and convert with markitdown
             local_path = download_file(url)
-            print(f"Downloaded file to: {local_path}")
+            log_info(f"Downloaded file to: {local_path}")
 
             # Convert the file to markdown
             conversion_result = md.convert(local_path)
@@ -463,25 +484,25 @@ def test_markitdown_fetch(url):
 
                 # If Ollama is available, generate a caption
                 if OLLAMA_AVAILABLE and PREFERRED_MODEL:
-                    print(f"Generating image caption using {PREFERRED_MODEL}...")
+                    log_info(f"Generating image caption using {PREFERRED_MODEL}...")
                     caption = generate_image_caption(local_path)
                     markdown_content = f"{image_markdown}\n\n## Image Description\n\n{caption}"
-                    print(f"Added image with AI-generated caption")
+                    log_info(f"Added image with AI-generated caption")
                 else:
                     markdown_content = f"{image_markdown}\n\n*This is an image file. For detailed image description, install Ollama with gemma3:4b or qwen2.5vl:7b.*"
-                    print(f"Added basic image tag for image file")
+                    log_info(f"Added basic image tag for image file")
 
-            print(f"Conversion successful, content length: {len(markdown_content)}")
+            log_info(f"Conversion successful, content length: {len(markdown_content)}")
 
             # Clean up temporary file
             os.remove(local_path)
 
         # Print only the first 500 characters of the result to avoid flooding the console
         preview = markdown_content[:500] + "..." if len(markdown_content) > 500 else markdown_content
-        print(f"Preview:\n{preview}")
+        log_info(f"Preview:\n{preview}")
         return markdown_content
     except Exception as e:
-        print(f"Test failed: {str(e)}")
+        log_info(f"Test failed: {str(e)}")
         return None
 
 
@@ -494,12 +515,12 @@ def main():
             test_url = sys.argv[2]
             test_markitdown_fetch(test_url)
         else:
-            print("Please provide a URL to test")
-            print("Usage: python main.py --test <url>")
+            log_info("Please provide a URL to test")
+            log_info("Usage: python main.py --test <url>")
         return
 
     # Start normal MCP server mode
-    print("Starting MarkItDown Fetch Server")
+    log_info("Starting MarkItDown Fetch Server")
     mcp.run(transport="stdio")
 
 
