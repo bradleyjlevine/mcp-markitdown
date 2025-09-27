@@ -244,121 +244,7 @@ def download_file(url):
         return temp_file.name
 
 
-def download_youtube_transcript(url):
-    """Download a YouTube video transcript using yt-dlp and return the local path to a text file."""
-    with tempfile.NamedTemporaryFile(suffix='.txt', delete=False) as temp_file:
-        temp_path = temp_file.name
-
-    # Extract video ID from URL
-    video_id = None
-    patterns = [
-        r'(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/e\/|youtube\.com\/user\/.+\/|youtube\.com\/c\/.+\/|youtube\.com\/\w+\/|youtube\.com\/[^\/]+\?v=)([^&\n?#]+)',
-        r'(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/([^&\n?#]+)',
-    ]
-
-    for pattern in patterns:
-        match = re.search(pattern, url)
-        if match:
-            video_id = match.group(1)
-            break
-
-    if not video_id:
-        raise ValueError("Could not extract YouTube video ID from URL")
-
-    # Options for yt-dlp with simpler approach for subtitle extraction
-    ydl_opts = {
-        'writesubtitles': True,
-        'writeautomaticsub': True,
-        'subtitleslangs': ['en'],
-        'skip_download': True,
-        'quiet': not ("--test" in sys.argv),  # Only show download progress in test mode
-        'no_progress': not ("--test" in sys.argv),  # Suppress progress bar in MCP mode
-        'outtmpl': temp_path,
-        'format': 'best',  # Just to satisfy the format requirement
-        # Basic impersonation without complex client settings
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        },
-        'logger': logger,  # Use our configured logger
-    }
-
-    try:
-        # In MCP server mode, capture and redirect stdout/stderr
-        if "--test" not in sys.argv:
-            # Capture stdout/stderr to prevent them from interfering with MCP protocol
-            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(url, download=True)
-        else:
-            # In test mode, let stdout/stderr flow normally
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-
-        # The subtitle file might be named differently
-        subtitle_path = f"{temp_path}.en.vtt"
-
-        if os.path.exists(subtitle_path):
-            # Read VTT and convert to plain text
-            with open(subtitle_path, 'r', encoding='utf-8') as vtt_file:
-                content = vtt_file.read()
-
-            # Enhanced VTT to text conversion with better formatting cleanup
-            lines = content.split('\n')
-
-            # Process lines to remove formatting
-            filtered_lines = []
-            last_clean_line = ""
-
-            for line in lines:
-                # Skip WebVTT header, timestamps, position tags, etc.
-                if (not re.match(r'^WEBVTT|^\d{2}:|^NOTE|^Kind:|^Language:|^STYLE|^REGION', line) and
-                    not re.match(r'^\d{2}:\d{2}:\d{2}\.\d{3}', line) and
-                    not line.startswith('-->') and
-                    line.strip()):
-
-                    # Remove all VTT formatting tags: <00:00:00.000>, <c>, etc.
-                    clean_line = re.sub(r'<\d{2}:\d{2}:\d{2}\.\d{3}>', '', line)
-                    clean_line = re.sub(r'</?[a-zA-Z]>', '', clean_line)
-                    clean_line = re.sub(r'</?[a-zA-Z]:[^>]*>', '', clean_line)
-
-                    # Clean up any remaining tags
-                    clean_line = re.sub(r'<[^>]*>', '', clean_line)
-
-                    # Only add if there's content and it's not a duplicate of the previous line
-                    if clean_line.strip() and clean_line.strip() != last_clean_line:
-                        filtered_lines.append(clean_line.strip())
-                        last_clean_line = clean_line.strip()
-
-            # Write cleaned text to the output file
-            with open(temp_path, 'w', encoding='utf-8') as text_file:
-                text_file.write(f"# Transcript for YouTube Video: {info.get('title', 'Unknown Title')}\n\n")
-                text_file.write('\n'.join(filtered_lines))
-
-            # Clean up the VTT file
-            if os.path.exists(subtitle_path):
-                os.remove(subtitle_path)
-
-            return temp_path
-        else:
-            raise Exception("No subtitles were found for this video")
-    except Exception as e:
-        # Clean up temporary files in case of error
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-        raise Exception(f"Failed to download YouTube transcript: {str(e)}")
-
-
-def is_youtube_url(url):
-    """Check if the URL is from YouTube."""
-    patterns = [
-        r'(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/',
-        r'(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/'
-    ]
-
-    for pattern in patterns:
-        if re.match(pattern, url):
-            return True
-    return False
+# YouTube handling now uses the built-in markitdown YouTubeConverter
 
 
 @mcp.tool(
@@ -401,32 +287,33 @@ def markitdown_fetch(
         # Clean up URL - remove quotes and brackets that might be accidentally included
         url = url.strip().rstrip('"\'[]')
 
-        # Initialize MarkItDown converter
+        # Initialize MarkItDown converter with plugins enabled
+        # This enables YouTube support via the built-in YouTubeConverter
         md = MarkItDown(enable_plugins=True)
 
-        # Special handling for YouTube URLs
-        if is_youtube_url(url):
-            try:
-                local_path = download_youtube_transcript(url)
-                with open(local_path, 'r', encoding='utf-8') as f:
-                    markdown_content = f.read()
-                # Clean up temporary file
-                os.remove(local_path)
+        try:
+            # Try direct conversion with the URL
+            # This will use markitdown's built-in YouTube handling for YouTube URLs
+            log_info(f"Attempting direct URL conversion with markitdown...")
+            result = md.convert(url)
+            if result and hasattr(result, 'text_content') and result.text_content:
+                content = result.text_content
+                log_info(f"Direct URL conversion successful, content length: {len(content)}")
 
-                # Normalize line endings to \n for consistency
-                markdown_content = markdown_content.replace('\r\n', '\n')
+                # Normalize line endings for consistency
+                content = content.replace('\r\n', '\n')
 
                 # Strip any problematic characters that might cause JSON issues
-                markdown_content = ''.join(c for c in markdown_content if ord(c) >= 32 or c in '\n\r\t')
+                content = ''.join(c for c in content if ord(c) >= 32 or c in '\n\r\t')
 
-                return {"markdown": markdown_content}
-            except Exception as e:
-                log_info(f"Error processing YouTube transcript: {str(e)}")
-                return {"markdown": f"Error processing YouTube transcript: {str(e)}"}
+                return {"markdown": content}
+        except Exception as e:
+            log_info(f"Direct URL conversion failed: {str(e)}")
 
-        # For all other URLs, download the file and convert with markitdown
+        # If direct URL conversion failed or for non-URL inputs, download the file and try again
+        log_info(f"Downloading file for conversion...")
         local_path = download_file(url)
-        print(f"Downloaded file to: {local_path}")
+        log_info(f"Downloaded file to: {local_path}")
 
         # Convert the file to markdown
         result = md.convert(local_path)
@@ -466,24 +353,31 @@ def test_markitdown_fetch(url):
         url = url.strip().rstrip('"\'[]')
         log_info(f"Processing URL: {url}")
 
-        # Initialize MarkItDown converter
+        # Initialize MarkItDown converter with plugins enabled
+        # This enables YouTube support via the built-in YouTubeConverter
         md = MarkItDown(enable_plugins=True)
 
-        # Special handling for YouTube URLs
-        if is_youtube_url(url):
-            local_path = download_youtube_transcript(url)
-            with open(local_path, 'r', encoding='utf-8') as f:
-                markdown_content = f.read()
-            # Clean up temporary file
-            os.remove(local_path)
+        try:
+            # Try direct conversion with the URL first
+            # This will use markitdown's built-in YouTube handling for YouTube URLs
+            log_info(f"Attempting direct URL conversion with markitdown...")
+            result = md.convert(url)
+            if result and hasattr(result, 'text_content') and result.text_content:
+                markdown_content = result.text_content
+                log_info(f"Direct URL conversion successful, content length: {len(markdown_content)}")
 
-            # Normalize line endings to \n for consistency
-            markdown_content = markdown_content.replace('\r\n', '\n')
+                # Normalize line endings for consistency
+                markdown_content = markdown_content.replace('\r\n', '\n')
 
-            # Strip any problematic characters that might cause JSON issues
-            markdown_content = ''.join(c for c in markdown_content if ord(c) >= 32 or c in '\n\r\t')
-        else:
-            # For all other URLs, download the file and convert with markitdown
+                # Strip any problematic characters that might cause JSON issues
+                markdown_content = ''.join(c for c in markdown_content if ord(c) >= 32 or c in '\n\r\t')
+            else:
+                raise Exception("Direct URL conversion returned empty result")
+        except Exception as e:
+            log_info(f"Direct URL conversion failed: {str(e)}")
+
+            # If direct URL conversion failed, download the file and try again
+            log_info(f"Downloading file for conversion...")
             local_path = download_file(url)
             log_info(f"Downloaded file to: {local_path}")
 
