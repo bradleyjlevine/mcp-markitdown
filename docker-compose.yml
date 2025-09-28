@@ -1,19 +1,24 @@
-version: '3.8'
-
 services:
-  mcp-markitdown:
+  markitdown:
     build: .
-    container_name: mcp-markitdown
+    container_name: markitdown
+    # Embedded bgutil provider starts inside the container
     environment:
       # Configure Ollama connection
       - OLLAMA_HOST=http://host.docker.internal:11434
-      # Optional: Add other environment variables
+      # MCP Transport configuration
+      - MCP_TRANSPORT=http
+      - MCP_HTTP_PORT=8085
+      - MCP_HTTP_HOST=0.0.0.0
+      # Other environment variables
       - PYTHONUNBUFFERED=1
+    networks:
+      - app-network
     # For Linux hosts, uncomment the following line instead of using host.docker.internal
     # network_mode: host
     ports:
-      # Optional: expose port if you add HTTP interface later
-      - "8080:8080"
+      # HTTP interface port
+      - "8085:8085"
     # Mount volumes if needed for file processing
     volumes:
       - ./logs:/app/logs  # Optional: for logging
@@ -22,21 +27,53 @@ services:
     platform: linux/amd64
 
 # Alternative configuration for Linux hosts
-# Uncomment the following and comment out the above service for Linux
+# Uncomment the following and comment out the above services for Linux
 #
 # services:
-#   mcp-markitdown-linux:
+#   # bgutil PO Token Provider for enhanced YouTube transcript extraction
+#   bgutil-provider:
+#     image: brainicism/bgutil-ytdlp-pot-provider
+#     container_name: bgutil-provider
+#     ports:
+#       - "4416:4416"
+#     restart: unless-stopped
+#     init: true
+#     healthcheck:
+#       test: ["CMD", "curl", "-f", "http://localhost:4416/ping"]
+#       interval: 30s
+#       timeout: 10s
+#       retries: 3
+#     networks:
+#       - app-network
+#
+#   markitdown-linux:
 #     build: .
-#     container_name: mcp-markitdown
+#     container_name: markitdown
+#     depends_on:
+#       - bgutil-provider
 #     environment:
 #       # Use host network gateway IP for Linux
 #       - OLLAMA_HOST=http://172.17.0.1:11434
+#       # MCP Transport configuration
+#       - MCP_TRANSPORT=http
+#       - MCP_HTTP_PORT=8085
+#       - MCP_HTTP_HOST=0.0.0.0
+#       # bgutil-provider service connection
+#       - YTDLP_BGUTIL_POT_PROVIDER_URL=http://bgutil-provider:4416
+#       # Other environment variables
 #       - PYTHONUNBUFFERED=1
+#     networks:
+#       - app-network
 #     network_mode: bridge
 #     extra_hosts:
 #       - "host.docker.internal:host-gateway"
 #     ports:
-#       - "8080:8080"
+#       - "8085:8085"
 #     volumes:
 #       - ./logs:/app/logs
 #     restart: unless-stopped
+
+# Define named networks
+networks:
+  app-network:
+    driver: bridge

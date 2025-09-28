@@ -12,4 +12,7 @@ dependencies = [
     "yt-dlp[curl-cffi]>=2023.11.16",
     "ollama>=0.1.5",
     "pillow>=10.0.0",
+    "humanize>=4.8.0",
+    "youtube-transcript-api>=0.6.1",
+    "bgutil-ytdlp-pot-provider>=1.2.0",
 ]
