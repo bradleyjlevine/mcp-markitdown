@@ -214,16 +214,17 @@ There are now two run options (organized under `docker/`):
   - Build file: `docker/minimal/Dockerfile`
   - Compose: `docker/minimal/docker-compose.yml`
   - Runs `bgutil-provider` as a separate service; markitdown connects to it via `YTDLP_BGUTIL_POT_PROVIDER_URL`.
+  - Defaults to MCP stdio transport; set `MCP_TRANSPORT=streamable-http` to expose HTTP.
 
 1. Clone the repository and navigate to the project directory
 2. Build and run using Docker Compose:
 
 ```bash
-# Option A: Embedded (single container)
+# Option A: Embedded (single container; HTTP uses streamable-http)
 cd docker/embedded
 docker compose up --build
 
-# Option B: Minimal split (markitdown + provider)
+# Option B: Minimal split (markitdown + provider; defaults to stdio)
 cd docker/minimal
 docker compose up --build
 
@@ -243,9 +244,13 @@ The MCP server will be accessible at http://localhost:8085/ for HTTP clients.
 You can configure the transport mode using environment variables:
 
 ```bash
-# In docker-compose.yml under environment:
-- MCP_TRANSPORT=http  # or "stdio"
-- MCP_HTTP_PORT=8085  # only used when MCP_TRANSPORT=http
+# In compose under environment:
+# Use stdio (minimal default)
+- MCP_TRANSPORT=stdio
+
+# Or use HTTP server with streaming-compatible transport
+- MCP_TRANSPORT=streamable-http
+- MCP_HTTP_PORT=8085  # only used when MCP_TRANSPORT=streamable-http
 ```
 
 #### Running Only the bgutil Provider

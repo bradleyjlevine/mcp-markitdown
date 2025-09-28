@@ -26,7 +26,7 @@ COPY . ./
 # Environment
 ENV PYTHONUNBUFFERED=1 \
     OLLAMA_HOST=http://host.docker.internal:11434 \
-    MCP_TRANSPORT=http \
+    MCP_TRANSPORT=stdio \
     MCP_HTTP_PORT=8085 \
     MCP_HTTP_HOST=0.0.0.0
 
@@ -46,4 +46,3 @@ RUN useradd --create-home --shell /bin/bash appuser && \
 USER appuser
 
 CMD ["/app/start.sh"]
-

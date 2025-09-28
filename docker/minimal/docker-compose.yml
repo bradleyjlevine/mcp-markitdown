@@ -26,7 +26,7 @@ services:
         condition: service_healthy
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
-      - MCP_TRANSPORT=http
+      - MCP_TRANSPORT=stdio
       - MCP_HTTP_PORT=8085
       - MCP_HTTP_HOST=0.0.0.0
       # Tell yt-dlp where to find the provider
