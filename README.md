@@ -203,23 +203,31 @@ The project includes Docker support for easy deployment and isolation from host 
 
 #### Quick Start with Docker Compose
 
-The docker-compose configuration now includes both the main application and the bgutil-provider service for enhanced YouTube transcript extraction. The application uses HTTP transport mode by default (port 8085), which makes it easier to use with Docker.
+There are now two run options:
+
+- Embedded provider (single container): default `docker-compose.yml` builds an image that starts the bgutil provider inside the markitdown container. Easiest path when you don’t need to see provider logs separately.
+- Minimal (split containers): `docker-compose.minimal.yml` runs a lean markitdown image (no embedded provider) plus a separate `bgutil-provider` container. Good when you prefer explicit separation and provider logs in their own service.
 
 1. Clone the repository and navigate to the project directory
 2. Build and run using Docker Compose:
 
 ```bash
-# For Windows/Mac (uses host.docker.internal)
-docker-compose up --build
+# Option A: Embedded provider (single container)
+docker compose up --build
 
-# For Linux, edit docker-compose.yml to uncomment the Linux configuration
-# or use the alternative command:
-OLLAMA_HOST=http://172.17.0.1:11434 docker-compose up --build
+# Option B: Minimal split (markitdown + provider)
+docker compose -f docker-compose.minimal.yml up --build
+
+# Linux note for both options:
+# If host.docker.internal is unavailable, set OLLAMA_HOST to the bridge IP
+# e.g. OLLAMA_HOST=http://172.17.0.1:11434 docker compose ...
 ```
 
-This will start both services:
-- `mcp-markitdown`: The main application (HTTP server on port 8085)
-- `bgutil-provider`: PO token provider for YouTube SABR bypass (port 4416)
+This will start either:
+- Embedded: one `markitdown` container (runs MCP HTTP on 8085 and bgutil provider on 4416 internally)
+- Minimal split: two containers
+  - `markitdown`: the MCP HTTP server on port 8085
+  - `bgutil-provider`: the PO token provider on port 4416
 
 The MCP server will be accessible at http://localhost:8085/ for HTTP clients.
 
@@ -238,10 +246,10 @@ You can configure the transport mode using environment variables:
 If you want to run just the bgutil provider alongside a local development setup:
 
 ```bash
-# Start only the bgutil provider
-docker-compose up bgutil-provider
+# Start only the bgutil provider (minimal compose)
+docker compose -f docker-compose.minimal.yml up bgutil-provider
 
-# Or run it standalone (recommended when using stdio transport)
+# Or run it standalone
 docker run --name bgutil-provider -d -p 4416:4416 --init brainicism/bgutil-ytdlp-pot-provider
 ```
 
@@ -266,6 +274,10 @@ docker run -e OLLAMA_HOST=http://host.docker.internal:11434 mcp-markitdown pytho
 - `OLLAMA_HOST`: URL of the Ollama service (default: http://localhost:11434)
   - Windows/Mac: `http://host.docker.internal:11434`
   - Linux: `http://172.17.0.1:11434` or use `--network=host`
+- `YTDLP_BGUTIL_POT_PROVIDER_URL`: If set, markitdown will direct yt-dlp to use the bgutil provider at this URL.
+  - Minimal compose sets this to `http://bgutil-provider:4416`.
+  - Local dev can use `http://127.0.0.1:4416` when provider runs on the host.
+- `YTDLP_POT_TRACE`: Set to `true` to enable yt-dlp PO Token tracing (debug messages about token generation).
 
 #### Network Configuration
 

@@ -1,0 +1,47 @@
+services:
+  # Separate bgutil PO Token Provider
+  bgutil-provider:
+    image: brainicism/bgutil-ytdlp-pot-provider
+    container_name: bgutil-provider
+    ports:
+      - "4416:4416"
+    restart: unless-stopped
+    init: true
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"http=require('http');http.get('http://localhost:4416/ping',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 20s
+      timeout: 5s
+      start_period: 10s
+      retries: 10
+    networks:
+      - app-network
+
+  markitdown:
+    build:
+      context: .
+      dockerfile: Dockerfile.minimal
+    container_name: markitdown
+    depends_on:
+      bgutil-provider:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - MCP_TRANSPORT=http
+      - MCP_HTTP_PORT=8085
+      - MCP_HTTP_HOST=0.0.0.0
+      # Tell yt-dlp where to find the provider
+      - YTDLP_BGUTIL_POT_PROVIDER_URL=http://bgutil-provider:4416
+      - PYTHONUNBUFFERED=1
+    networks:
+      - app-network
+    ports:
+      - "8085:8085"
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    platform: linux/amd64
+
+networks:
+  app-network:
+    driver: bridge
+
