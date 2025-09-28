@@ -9,4 +9,16 @@ wheels/
 # Virtual environments
 .venv
 
+# Logs
 markitdown.log
+
+# Test files
+test_*.py
+debug_*.py
+*_test.py
+youtube_transcript.py
+
+# Environment variables
+.env
+.env.*
+*.env
