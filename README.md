@@ -203,20 +203,29 @@ The project includes Docker support for easy deployment and isolation from host 
 
 #### Quick Start with Docker Compose
 
-There are now two run options:
+There are now two run options (organized under `docker/`):
 
-- Embedded provider (single container): default `docker-compose.yml` builds an image that starts the bgutil provider inside the markitdown container. Easiest path when you don’t need to see provider logs separately.
-- Minimal (split containers): `docker-compose.minimal.yml` runs a lean markitdown image (no embedded provider) plus a separate `bgutil-provider` container. Good when you prefer explicit separation and provider logs in their own service.
+- Embedded provider (single container): `docker/embedded`
+  - Build file: `docker/embedded/Dockerfile`
+  - Compose: `docker/embedded/docker-compose.yml`
+  - Starts the bgutil provider inside the markitdown container.
+
+- Minimal split (two containers): `docker/minimal`
+  - Build file: `docker/minimal/Dockerfile`
+  - Compose: `docker/minimal/docker-compose.yml`
+  - Runs `bgutil-provider` as a separate service; markitdown connects to it via `YTDLP_BGUTIL_POT_PROVIDER_URL`.
 
 1. Clone the repository and navigate to the project directory
 2. Build and run using Docker Compose:
 
 ```bash
-# Option A: Embedded provider (single container)
+# Option A: Embedded (single container)
+cd docker/embedded
 docker compose up --build
 
 # Option B: Minimal split (markitdown + provider)
-docker compose -f docker-compose.minimal.yml up --build
+cd docker/minimal
+docker compose up --build
 
 # Linux note for both options:
 # If host.docker.internal is unavailable, set OLLAMA_HOST to the bridge IP
@@ -224,10 +233,8 @@ docker compose -f docker-compose.minimal.yml up --build
 ```
 
 This will start either:
-- Embedded: one `markitdown` container (runs MCP HTTP on 8085 and bgutil provider on 4416 internally)
-- Minimal split: two containers
-  - `markitdown`: the MCP HTTP server on port 8085
-  - `bgutil-provider`: the PO token provider on port 4416
+- Embedded: one `markitdown` container (MCP HTTP on 8085 and bgutil provider on 4416 internally)
+- Minimal split: two containers (`markitdown` and `bgutil-provider`)
 
 The MCP server will be accessible at http://localhost:8085/ for HTTP clients.
 
@@ -247,7 +254,7 @@ If you want to run just the bgutil provider alongside a local development setup:
 
 ```bash
 # Start only the bgutil provider (minimal compose)
-docker compose -f docker-compose.minimal.yml up bgutil-provider
+cd docker/minimal && docker compose up bgutil-provider
 
 # Or run it standalone
 docker run --name bgutil-provider -d -p 4416:4416 --init brainicism/bgutil-ytdlp-pot-provider

@@ -72,3 +72,4 @@ USER appuser
 
 # Default command
 CMD ["/app/start.sh"]
+

@@ -18,8 +18,8 @@ services:
 
   markitdown:
     build:
-      context: .
-      dockerfile: Dockerfile.minimal
+      context: ../..
+      dockerfile: docker/minimal/Dockerfile
     container_name: markitdown
     depends_on:
       bgutil-provider:
@@ -44,4 +44,3 @@ services:
 networks:
   app-network:
     driver: bridge
-

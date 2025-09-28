@@ -1,6 +1,8 @@
 services:
   markitdown:
-    build: .
+    build:
+      context: ../..
+      dockerfile: docker/embedded/Dockerfile
     container_name: markitdown
     # Embedded bgutil provider starts inside the container
     environment:
