@@ -792,8 +792,8 @@ def main():
     transport = DEFAULT_TRANSPORT
     log_info(f"Using {transport} transport mode")
 
-    if transport == "http":
-        # Bind to all interfaces (0.0.0.0) to allow external connections
+    if transport in {"http", "streamable-http"}:
+        # Bind to configured host/port for any HTTP transport variant
         log_info(f"Starting HTTP server on {HTTP_HOST}:{HTTP_PORT}")
         mcp.run(transport=transport, port=HTTP_PORT, host=HTTP_HOST)
     else:
