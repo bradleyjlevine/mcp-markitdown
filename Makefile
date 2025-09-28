@@ -31,8 +31,9 @@ logs-minimal:
 
 test-minimal:
 	cd docker/minimal && \
-	  docker compose exec bgutil-provider sh -lc "curl -sf http://localhost:4416/ping | head -c 200 && echo" && \
-	  docker compose exec markitdown sh -lc "printenv | grep -E '^YTDLP_BGUTIL_POT_PROVIDER_URL=' || true; uv run main.py --test https://example.com | head -n 30"
+	  docker compose exec bgutil-provider sh -lc "node -e 'http=require(\"http\");http.get(\"http://localhost:4416/ping\",r=>{console.log(\"OK \"+r.statusCode)}).on(\"error\",()=>process.exit(1))'" && \
+	  docker compose exec markitdown sh -lc "printenv | grep -E '^YTDLP_BGUTIL_POT_PROVIDER_URL=' || true; python - <<'PY'\nimport main\nprint('main_import_ok')\nPY" && \
+	  docker compose exec markitdown sh -lc "UV_LINK_MODE=copy uv run main.py --test https://example.com | head -n 30 || true"
 
 # -------- Local (no container for markitdown) --------
 
@@ -46,4 +47,3 @@ local-provider-down:
 local-test: local-provider
 	export YTDLP_BGUTIL_POT_PROVIDER_URL=http://127.0.0.1:4416; \
 	  uv run main.py --test https://example.com | head -n 30
-

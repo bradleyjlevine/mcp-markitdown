@@ -24,6 +24,7 @@ services:
     # Mount volumes if needed for file processing
     volumes:
       - ./logs:/app/logs  # Optional: for logging
+      - uv-cache:/app/.cache/uv
     restart: unless-stopped
     # Add platform specification for multi-arch support
     platform: linux/amd64
@@ -79,3 +80,7 @@ services:
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  uv-cache:
+    driver: local

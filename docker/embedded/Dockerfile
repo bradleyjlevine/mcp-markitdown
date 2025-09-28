@@ -44,12 +44,16 @@ COPY . ./
 COPY --from=bgutil-provider /app /opt/bgutil
 
 # Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV OLLAMA_HOST=http://host.docker.internal:11434
+ENV PYTHONUNBUFFERED=1 \
+    OLLAMA_HOST=http://host.docker.internal:11434 \
+    UV_CACHE_DIR=/app/.cache/uv
 
 # Expose ports
 EXPOSE 8080
 EXPOSE 8085
+
+# Prep cache directory for uv
+RUN mkdir -p /app/.cache/uv
 
 # Create a startup script that runs the main app
 COPY <<-EOT /app/start.sh
@@ -72,4 +76,3 @@ USER appuser
 
 # Default command
 CMD ["/app/start.sh"]
-

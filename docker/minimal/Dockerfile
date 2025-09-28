@@ -28,10 +28,14 @@ ENV PYTHONUNBUFFERED=1 \
     OLLAMA_HOST=http://host.docker.internal:11434 \
     MCP_TRANSPORT=stdio \
     MCP_HTTP_PORT=8085 \
-    MCP_HTTP_HOST=0.0.0.0
+    MCP_HTTP_HOST=0.0.0.0 \
+    UV_CACHE_DIR=/app/.cache/uv
 
 # Expose HTTP transport port
 EXPOSE 8085
+
+# Prep cache directory for uv
+RUN mkdir -p /app/.cache/uv
 
 # Startup script
 COPY <<-EOT /app/start.sh

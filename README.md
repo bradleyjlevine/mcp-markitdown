@@ -233,6 +233,33 @@ docker compose up --build
 # e.g. OLLAMA_HOST=http://172.17.0.1:11434 docker compose ...
 ```
 
+### Makefile Shortcuts
+
+For convenience, a Makefile is included with common tasks:
+
+```bash
+# Embedded (single container)
+make up-embedded        # build + start
+make logs-embedded      # tail logs
+make down-embedded      # stop + remove
+make test-embedded      # quick provider ping + sample test inside container
+
+# Minimal (split containers)
+make up-minimal         # build + start
+make logs-minimal       # tail logs
+make down-minimal       # stop + remove
+make test-minimal       # provider ping + sanity test inside markitdown
+
+# Local (run markitdown on host, provider in container)
+make local-provider     # start bgutil-provider (docker)
+make local-test         # run a quick local test against https://example.com
+```
+
+Notes:
+- Minimal defaults to MCP stdio. Set `MCP_TRANSPORT=streamable-http` to run an HTTP server.
+- Embedded always uses HTTP with `streamable-http`.
+- Set `YTDLP_POT_TRACE=true` to enable yt-dlp PO Token tracing in logs.
+
 This will start either:
 - Embedded: one `markitdown` container (MCP HTTP on 8085 and bgutil provider on 4416 internally)
 - Minimal split: two containers (`markitdown` and `bgutil-provider`)
