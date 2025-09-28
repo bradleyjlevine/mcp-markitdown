@@ -49,7 +49,6 @@ ENV PYTHONUNBUFFERED=1 \
     UV_CACHE_DIR=/app/.cache/uv
 
 # Expose ports
-EXPOSE 8080
 EXPOSE 8085
 
 # Prep cache directory for uv
