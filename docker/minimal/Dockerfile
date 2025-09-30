@@ -37,11 +37,8 @@ EXPOSE 8085
 # Prep cache directory for uv
 RUN mkdir -p /app/.cache/uv
 
-# Startup script
-COPY <<-EOT /app/start.sh
-#!/bin/bash
-exec uv run main.py
-EOT
+# Create a startup script
+RUN echo '#!/bin/bash\nexec uv run main.py' > /app/start.sh
 RUN chmod +x /app/start.sh
 
 # Non-root user

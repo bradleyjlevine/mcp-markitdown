@@ -54,14 +54,8 @@ EXPOSE 8085
 # Prep cache directory for uv
 RUN mkdir -p /app/.cache/uv
 
-# Create a startup script that runs the main app
-COPY <<-EOT /app/start.sh
-#!/bin/bash
-# Start the embedded bgutil provider in background on :4416
-node /opt/bgutil/build/main.js &
-# Start the main application
-exec uv run main.py
-EOT
+# Create a startup script
+RUN echo '#!/bin/bash\n# Start the embedded bgutil provider in background on :4416\nnode /opt/bgutil/build/main.js &\n# Start the main application\nexec uv run main.py' > /app/start.sh
 
 # Make the startup script executable
 RUN chmod +x /app/start.sh
